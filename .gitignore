@@ -20,5 +20,7 @@
 *.jpg
 *.png
 *.tex
+*.kml
+*.kmz
 ElectionAnalysisVenv/*
 VoterImpactIndex/TheMathematicsAndStatisticsOfVotingPower.pdf
