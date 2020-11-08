@@ -18,35 +18,14 @@ Colour polling divisions based on election results
 
 
 def generateStyleMap(fillColour, outlineColour, partyLabel):
-    return '''<StyleMap id="''' + partyLabel + '''">
-                  <Pair>
-                      <key>normal</key>
-                      <styleUrl>#''' + partyLabel + str(1) + '''</styleUrl>
-                  </Pair>
-                  <Pair>
-                      <key>highlight</key>
-                      <styleUrl>#''' + partyLabel + str(2) + '''</styleUrl>
-                  </Pair>
-              </StyleMap>
-              <Style id="''' + partyLabel + str(1) + '''">
+    return '''<Style id="''' + partyLabel + '''">
                   <LabelStyle>
                       <color>00000000</color>
                       <scale>0</scale>
                   </LabelStyle>
                   <LineStyle>
                       <color>''' + outlineColour + '''</color>
-                  </LineStyle>
-                  <PolyStyle>
-                      <color>''' + fillColour + '''</color>
-                  </PolyStyle>
-              </Style>
-              <Style id="''' + partyLabel + str(2) + '''">
-                  <LabelStyle>
-                      <color>00000000</color>
-                      <scale>0</scale>
-                  </LabelStyle>
-                  <LineStyle>
-                      <color>''' + outlineColour + '''</color>
+                      <width>0.4</width>
                   </LineStyle>
                   <PolyStyle>
                       <color>''' + fillColour + '''</color>
@@ -57,16 +36,15 @@ def generateStyleMap(fillColour, outlineColour, partyLabel):
 # Could not find a suitable parsing library so changes are added as file is read (this makes many structure assumptions)
 def formatKML(pdFile, styleMaps, ridingElectionDict):
     pdStr = ''
-
     rpdId = [-1, -1]  # -1: None, -2: Value will be in next lines, X: Value
 
     for line in pdFile:
         # Insert custom StyleMaps before first defined one
-        if '''<StyleMap id="PolyStyle00">''' in line:
+        if '''<Style id="PolyStyle00">''' in line:
             for sMap in styleMaps:
                 pdStr += sMap
 
-        # Change the style depending on the winner in that polling division
+        # Change the polling division fill depending on the winner
         if 'FEDNUM' in line:
             rpdId[0] = -2
 
@@ -87,10 +65,10 @@ def formatKML(pdFile, styleMaps, ridingElectionDict):
             try:
                 if '<styleUrl>#PolyStyle00</styleUrl>' in line:
                     votes = ridingElectionDict[rpdId[0]][rpdId[1]]['Votes']
-                    maxIndex = votes.index(max(votes))
+                    maxVote = max(votes.values())
+                    winningParty = next(key for key, value in votes.items() if value == maxVote)  # Assumes no ties
 
-                    style = 'CustomStyle' + str(maxIndex)
-                    line = line.replace('PolyStyle00', style)
+                    line = line.replace('PolyStyle00', winningParty)
                     rpdId = [-1, -1]
             except KeyError:  # Some polling stations that have been replaced still appear in file.kml file (why?)
                 print(str(datetime.datetime.now()) + ': Merged polling station ' + rpdId[1] + ' in riding ' + rpdId[0] + ' is in .kml file')
@@ -111,7 +89,7 @@ if __name__ == '__main__':
 
     pollingDivsFile = getPollingDivisions()
 
-    styleMaps = [generateStyleMap(colour, 'ffffffff', 'CustomStyle' + str(index)) for index, colour in enumerate(partyColours)]
+    styleMaps = [generateStyleMap(colour, 'ffffffff', partyLabel) for partyLabel, colour in partyColours.items()]
     pollingDivsStr = formatKML(pollingDivsFile, styleMaps, ridingElectionDict)
 
     writePollingDivisions(pollingDivsStr)

@@ -16,10 +16,18 @@ Utility functions for processing Canadian election results
 
 
 electionYearMap = {39: 2006, 40: 2008, 41: 2011, 42: 2015, 43: 2019}
-parties = ['Liberal', 'Conservative', 'NDP-New Democratic Party', 'Bloc', 'Green Party', 'Other']
-partyColours = ['b31400C8', 'b3B42814', 'b31478FA', 'b3B47800', 'b3009614', 'b3646464']
-sPath = str(pathlib.Path(__file__).parent.absolute())
 defaultElection = 43
+
+parties = {'Liberal': 'Liberal', 'Conservative': 'Conservative', 'NDP': 'NDP-New Democratic Party',
+           'BlocQuebecois': 'Bloc', 'Green': 'Green Party', 'Other': 'Other'}
+partyColours = {'Liberal': 'b31400C8', 'Conservative': 'b3B42814', 'NDP': 'b31478FA',
+                'BlocQuebecois': 'b3B47800', 'Green': 'b3009614', 'Other': 'b3646464'}
+
+sPath = str(pathlib.Path(__file__).parent.absolute())
+
+
+def mergeVoteDicts(d1, d2):
+    return {party: d1[party] + d2[party] for party in parties}
 
 
 def requestElectionResults(urlStr, outputDir):
@@ -46,7 +54,7 @@ def requestElectionResults(urlStr, outputDir):
 
 
 def generateElectionDict(fileNames, parties):
-    print(str(datetime.datetime.now()) + ': Loading ' + fileNames[0].split('/')[0][-4:] + ' election')
+    print(str(datetime.datetime.now()) + ': Loading ' + fileNames[0].split('/')[-2][-4:] + ' election')
 
     nation = {}
 
@@ -71,12 +79,15 @@ def generateElectionDict(fileNames, parties):
             # Get the party
             for row in csvReader:
                 # Need to split as Bloc Quebecois has accents that won't behave properly
-                if row[13] in parties:
+                if row[13] in parties.values():
                     party = row[13]
-                elif row[13].split(' ')[0] in parties:
+                elif row[13].split(' ')[0] in parties.values():
                     party = row[13].split(' ')[0]
                 else:
                     party = 'Other'
+
+                # Assumes a 1-1 mapping of parties in .csv file to party labels in parties dictionary
+                partyLabel = next(key for key, value in parties.items() if value == party)
 
                 # Check if polling station was merged or void and so no longer used
                 if row[7].strip() != '' or row[5].strip() == 'Y':
@@ -85,17 +96,19 @@ def generateElectionDict(fileNames, parties):
                 # Update and/or add node for polling station
                 pollingStationCode = row[3].strip()
 
+                # Add info for new polling station
                 if pollingStationCode not in nation[provinceCode][ridingCode]:
                     nation[provinceCode][ridingCode][pollingStationCode] = {}
                     nation[provinceCode][ridingCode][pollingStationCode]['PollingStationName'] = row[4]
                     nation[provinceCode][ridingCode][pollingStationCode]['RidingName'] = row[1]
-                    nation[provinceCode][ridingCode][pollingStationCode]['Votes'] = [0 for party in parties]
+                    nation[provinceCode][ridingCode][pollingStationCode]['Votes'] = {p: 0 for p in parties}
 
-                nation[provinceCode][ridingCode][pollingStationCode]['Votes'][parties.index(party)] += int(row[17])
+                # Update vote count for existing polling station
+                nation[provinceCode][ridingCode][pollingStationCode]['Votes'][partyLabel] += int(row[17])
 
         # Check empty polling stations
         for pollingStation in nation[provinceCode][ridingCode]:
-            if sum(nation[provinceCode][ridingCode][pollingStation]['Votes']) == 0:
+            if sum(nation[provinceCode][ridingCode][pollingStation]['Votes'].values()) == 0:
                 print(str(datetime.datetime.now()) + ': Zero votes in riding ' + ridingCode + ' at polling station ' + pollingStation)
 
     return nation
@@ -124,17 +137,17 @@ def getSubElectionDict(electionDict, type='Province'):
     assert type == 'Province' or type == 'Riding'
 
     if type == 'Province':
-        subElectionDict = {province: [0 for party in parties] for province in electionDict}
+        subElectionDict = {province: {party: 0 for party in parties} for province in electionDict}
     else:
-        subElectionDict = {riding: [0 for party in parties] for province in electionDict for riding in electionDict[province]}
+        subElectionDict = {riding: {party: 0 for party in parties} for province in electionDict for riding in electionDict[province]}
 
     for province in electionDict:
         for riding in electionDict[province]:
             for pollingStation in electionDict[province][riding]:
                 if type == 'Province':
-                    subElectionDict[province] = [x + y for x, y in zip(electionDict[province][riding][pollingStation]['Votes'], subElectionDict[province])]
+                    subElectionDict[province] = mergeVoteDicts(electionDict[province][riding][pollingStation]['Votes'], subElectionDict[province])
                 else:
-                    subElectionDict[riding] = [x + y for x, y in zip(electionDict[province][riding][pollingStation]['Votes'], subElectionDict[riding])]
+                    subElectionDict[riding] = mergeVoteDicts(electionDict[province][riding][pollingStation]['Votes'], subElectionDict[riding])
 
     return subElectionDict
 
@@ -156,7 +169,7 @@ def mergeSubdivisions(electionDict):
                         # Add the votes
                         currPollingStationVotes = electionDict[province][riding][pollingStation]['Votes']
                         newPollingStationVotes = newElectionDict[province][riding][pollingStation[:-1]]['Votes']
-                        newElectionDict[province][riding][pollingStation[:-1]]['Votes'] = [x + y for x, y in zip(currPollingStationVotes, newPollingStationVotes)]
+                        newElectionDict[province][riding][pollingStation[:-1]]['Votes'] = mergeVoteDicts(currPollingStationVotes, newPollingStationVotes)
                     else:
                         newElectionDict[province][riding][pollingStation[:-1]] = electionDict[province][riding][pollingStation]
 
@@ -176,6 +189,8 @@ def getPollingDivisions(election=defaultElection):
 
 
 def writePollingDivisions(pDivs, election=defaultElection):
-    pdFile = open(sPath + '/PollingDivisionsVisualization' + str(electionYearMap[election]) + '/LabelledPollingDivisions.kml', 'w')
+    assert election in electionYearMap  # Make sure a valid election is being analyzed
+
+    pdFile = open(sPath + '/PollingDivisionsVisualization/LabelledPollingDivisions' + str(electionYearMap[election]) + '.kml', 'w')
     pdFile.write(pDivs)
     pdFile.close()
