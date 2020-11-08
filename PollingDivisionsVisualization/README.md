@@ -2,11 +2,11 @@
 A program to colour each polling division based on the results from the 2019 Canadian federal election. The
 colour-party map is:
 
-Red - Liberal
-Blue - Conservative
-Orange - NDP
-Light Blue - Bloc Quebecois
-Green - Green
+Red - Liberal \
+Blue - Conservative \
+Orange - NDP \
+Light Blue - Bloc Quebecois \
+Green - Green \
 Grey - Other
 
 PollingDivisionsVisualization/LabelledPollingDivisions.kml contains the colouring. It can be opened with Google
