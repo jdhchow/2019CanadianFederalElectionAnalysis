@@ -21,5 +21,4 @@
 *.kml
 *.kmz
 ElectionAnalysisVenv/*
-VoterImpactIndex/TheMathematicsAndStatisticsOfVotingPower.pdf
-Description/*
+Archive/*

@@ -79,12 +79,16 @@ def generateElectionDict(fileNames, parties):
             # Get the party
             for row in csvReader:
                 # Need to split as Bloc Quebecois has accents that won't behave properly
-                if row[13] in parties.values():
-                    party = row[13]
-                elif row[13].split(' ')[0] in parties.values():
-                    party = row[13].split(' ')[0]
-                else:
-                    party = 'Other'
+                try:
+                    if row[13] in parties.values():
+                        party = row[13]
+                    elif row[13].split(' ')[0] in parties.values():
+                        party = row[13].split(' ')[0]
+                    else:
+                        party = 'Other'
+                except IndexError:
+                    print(str(datetime.datetime.now()) + ': Trailing line in riding ' + ridingCode)
+                    continue  # Trailing line which should be skipped
 
                 # Assumes a 1-1 mapping of parties in .csv file to party labels in parties dictionary
                 partyLabel = next(key for key, value in parties.items() if value == party)
@@ -133,21 +137,30 @@ def getElectionResults(election=defaultElection):
     return electionDict
 
 
-def getSubElectionDict(electionDict, type='Province'):
-    assert type == 'Province' or type == 'Riding'
+def getSubElectionDict(electionDict, type='Riding'):
+    assert type == 'Nation' or type == 'Province' or type == 'Riding' or type == 'PollingStation'
 
-    if type == 'Province':
+    if type == 'Nation':
+        subElectionDict = {'Canada': {party: 0 for party in parties}}
+    elif type == 'Province':
         subElectionDict = {province: {party: 0 for party in parties} for province in electionDict}
-    else:
+    elif type == 'Riding':
         subElectionDict = {riding: {party: 0 for party in parties} for province in electionDict for riding in electionDict[province]}
+    else:
+        pollingStationDict = {riding: electionDict[province][riding].keys() for province in electionDict for riding in electionDict[province]}
+        subElectionDict = {riding + pollingStation: {party: 0 for party in parties} for riding in pollingStationDict for pollingStation in pollingStationDict[riding]}
 
     for province in electionDict:
         for riding in electionDict[province]:
             for pollingStation in electionDict[province][riding]:
-                if type == 'Province':
+                if type == 'Nation':
+                    subElectionDict['Canada'] = mergeVoteDicts(electionDict[province][riding][pollingStation]['Votes'], subElectionDict['Canada'])
+                elif type == 'Province':
                     subElectionDict[province] = mergeVoteDicts(electionDict[province][riding][pollingStation]['Votes'], subElectionDict[province])
-                else:
+                elif type == 'Riding':
                     subElectionDict[riding] = mergeVoteDicts(electionDict[province][riding][pollingStation]['Votes'], subElectionDict[riding])
+                else:
+                    subElectionDict[riding + pollingStation] = electionDict[province][riding][pollingStation]['Votes']
 
     return subElectionDict
 
@@ -188,9 +201,9 @@ def getPollingDivisions(election=defaultElection):
     return pdFile
 
 
-def writePollingDivisions(pDivs, election=defaultElection):
+def writePollingDivisions(pDivs, election=defaultElection, riding=''):
     assert election in electionYearMap  # Make sure a valid election is being analyzed
 
-    pdFile = open(sPath + '/PollingDivisionsVisualization/LabelledPollingDivisions' + str(electionYearMap[election]) + '.kml', 'w')
+    pdFile = open(sPath + '/PollingDivisionsVisualization/LabelledPollingDivisions' + riding + '_' + str(electionYearMap[election]) + '.kml', 'w')
     pdFile.write(pDivs)
     pdFile.close()
