@@ -207,3 +207,9 @@ def writePollingDivisions(pDivs, election=defaultElection, riding=''):
     pdFile = open(sPath + '/PollingDivisionsVisualization/LabelledPollingDivisions' + riding + '_' + str(electionYearMap[election]) + '.kml', 'w')
     pdFile.write(pDivs)
     pdFile.close()
+
+
+def writeTippingPoint(df, party, election=defaultElection):
+    assert election in electionYearMap  # Make sure a valid election is being analyzed
+
+    df.to_csv('TippingPointRiding' + party + '.csv', index=False)

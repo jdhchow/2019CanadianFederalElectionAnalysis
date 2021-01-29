@@ -2,8 +2,9 @@
 A program to colour each polling division in Canada or a subset of ridings. Colour indicates the party which
 received the most votes in that division. Canadian federal election is available for 2019. Running
 the code will generate LabelledPollingDivisions[Riding(s)]_[Year].kml. It can be opened with Google Maps
-(or ArcGIS Earth, etc). The colour-party map is:
+(or ArcGIS Earth, etc).
 
+The colour-party map is:
 Red - Liberal \
 Blue - Conservative \
 Orange - NDP \
