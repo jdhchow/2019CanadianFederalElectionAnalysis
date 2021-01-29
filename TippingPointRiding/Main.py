@@ -22,6 +22,9 @@ majorityThreshold = {39: 155, 40: 155, 41: 155, 42: 170, 43: 170}
 def getRidingInfo(party, electionRidingDict):
     ridingInfo = {}
 
+    # "Other" is the aggregation of votes to other parties. Our calculations implicitly assume that this category
+    # is very close to a single party when it receives highest or second highest votes in a riding (else the margin
+    # would be slightly off)
     for riding, votes in electionRidingDict.items():
         ridingInfo[riding] = {party: votes[party] / sum(votes.values()) for party in votes}
         ridingInfo[riding]['Margin'] = ridingInfo[riding][party] - max([value for key, value in ridingInfo[riding].items() if key != party])
@@ -43,10 +46,9 @@ def identifyTippingPointRiding(party, currElection=defaultElection):
     partyVotes = 0
 
     for i in range(0, len(marginList)):
-        if marginList[i][2] == party:
-            partyVotes += 1
-        else:
+        if marginList[i][2] != party:
             otherPartyVotes[marginList[i][2]] -= 1
+        partyVotes += 1
 
         if i + 1 >= majorityThreshold[currElection]:
             cat = 'Majority'
